@@ -1,3 +1,6 @@
+import numpy as np
+
+
 # DT2119, Lab 1 Feature Extraction
 
 # Function given by the exercise ----------------------------------
@@ -55,6 +58,20 @@ def enframe(samples, winlen, winshift):
         numpy array [N x winlen], where N is the number of windows that fit
         in the input signal
     """
+    # Total number of windows
+    num_windows = 1 + (len(samples) - winlen) // winshift
+    
+    # Initialize the output array
+    frames = np.zeros((num_windows, winlen))
+    
+    # Populate the frames
+    for i in range(num_windows):
+        start = i * winshift
+        end = start + winlen
+        frames[i, :] = samples[start:end]
+    
+    return frames
+
     
 def preemp(input, p=0.97):
     """
