@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.signal import lfilter
 
 
 # DT2119, Lab 1 Feature Extraction
@@ -86,6 +87,13 @@ def preemp(input, p=0.97):
         output: array of pre-emphasised speech samples
     Note (you can use the function lfilter from scipy.signal)
     """
+    # Filter coefficients
+    b = [1, -p]  # Numerator coefficients
+    a = [1]      # Denominator coefficients, indicating a FIR filter
+    
+    # Apply the pre-emphasis filter
+    output = lfilter(b, a, input)
+    return output
 
 def windowing(input):
     """
