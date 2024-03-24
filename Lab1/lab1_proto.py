@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.signal import lfilter
 from scipy.signal import hamming
+from scipy.fftpack import fft
 
 
 # DT2119, Lab 1 Feature Extraction
@@ -133,6 +134,16 @@ def powerSpectrum(input, nfft):
         array of power spectra [N x nfft]
     Note: you can use the function fft from scipy.fftpack
     """
+    # Apply FFT on each frame and take the first nfft components
+    fft_result = fft(input, n=nfft)
+    
+    # Calculate the power spectrum for each frame
+    # This is done by taking the square of the magnitude of the FFT result
+    # np.abs(fft_result) computes the magnitude (sqrt(re^2 + im^2))
+    # Squaring the magnitude gives us the power spectrum
+    output = np.abs(fft_result) ** 2
+    
+    return output
 
 def logMelSpectrum(input, samplingrate):
     """
