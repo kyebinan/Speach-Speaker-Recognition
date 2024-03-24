@@ -1,7 +1,9 @@
 import numpy as np
+from lab1_tools import *
 from scipy.signal import lfilter
 from scipy.signal import hamming
 from scipy.fftpack import fft
+
 
 
 # DT2119, Lab 1 Feature Extraction
@@ -159,6 +161,17 @@ def logMelSpectrum(input, samplingrate):
     Note: use the trfbank function provided in lab1_tools.py to calculate the filterbank shapes and
           nmelfilters
     """
+    nfft = input.shape[1]
+    # Calculate the Mel filterbank
+    mel_filterbank = trfbank(samplingrate, nfft)
+    
+    # Apply the Mel filterbank to the power spectrum (matrix multiplication)
+    mel_spectrum = np.dot(input, mel_filterbank.T)
+    
+    # Compute the logarithm of the Mel spectrum
+    log_mel_spectrum = np.log(mel_spectrum + np.finfo(float).eps)
+    
+    return log_mel_spectrum
 
 def cepstrum(input, nceps):
     """
