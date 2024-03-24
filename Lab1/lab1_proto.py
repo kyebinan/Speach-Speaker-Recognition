@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import lfilter
+from scipy.signal import hamming
 
 
 # DT2119, Lab 1 Feature Extraction
@@ -107,6 +108,18 @@ def windowing(input):
     Note (you can use the function hamming from scipy.signal, include the sym=0 option
     if you want to get the same results as in the example)
     """
+    M = input.shape[1]
+    
+    # Generate the Hamming window with the same number of samples as in a frame
+    # Using sym=False to generate the periodic version of the Hamming window
+    # which is more suitable for spectral analysis
+    window = hamming(M, sym=False)
+    
+    # Apply the window to each frame
+    # This is done by element-wise multiplication of each frame by the window
+    output = input * window
+    
+    return output
 
 def powerSpectrum(input, nfft):
     """
