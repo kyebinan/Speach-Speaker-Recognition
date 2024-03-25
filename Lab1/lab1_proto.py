@@ -187,7 +187,7 @@ def cepstrum(input, nceps):
     Note: you can use the function dct from scipy.fftpack.realtransforms
     """
      # Apply DCT to the log Mel spectrum to get the Cepstral coefficients
-    cepstral_coeffs = dct(input, n=nceps ,type=2, norm='ortho', axis=-1)
+    cepstral_coeffs = dct(input, n=nceps)
     
     # Select only the first 'nceps' coefficients since those contain most of the signal information
     return cepstral_coeffs[:, :nceps]
