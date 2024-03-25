@@ -3,6 +3,7 @@ from lab1_tools import *
 from scipy.signal import lfilter
 from scipy.signal import hamming
 from scipy.fftpack import fft
+from scipy.fftpack import dct
 
 
 
@@ -185,6 +186,11 @@ def cepstrum(input, nceps):
         array of Cepstral coefficients [N x nceps]
     Note: you can use the function dct from scipy.fftpack.realtransforms
     """
+     # Apply DCT to the log Mel spectrum to get the Cepstral coefficients
+    cepstral_coeffs = dct(input, n=nceps ,type=2, norm='ortho', axis=-1)
+    
+    # Select only the first 'nceps' coefficients since those contain most of the signal information
+    return cepstral_coeffs[:, :nceps]
 
 def dtw(x, y, dist):
     """Dynamic Time Warping.
