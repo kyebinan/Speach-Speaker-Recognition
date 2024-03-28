@@ -3,7 +3,7 @@ from lab1_tools import *
 from scipy.signal import lfilter
 from scipy.signal import hamming
 from scipy.fftpack import fft
-from scipy.fftpack import dct
+from scipy.fftpack.realtransforms import dct
 
 
 
@@ -174,23 +174,30 @@ def logMelSpectrum(input, samplingrate):
     
     return log_mel_spectrum
 
-def cepstrum(input, nceps):
+def cepstrum(input, nceps=13):
     """
-    Calulates Cepstral coefficients from mel spectrum applying Discrete Cosine Transform
+    Calculates Cepstral coefficients from mel spectrum applying Discrete Cosine Transform (DCT)
+    and applies liftering to correct the coefficient range.
 
     Args:
         input: array of log outputs of Mel scale filterbank [N x nmelfilters] where N is the
-               number of frames and nmelfilters the length of the filterbank
-        nceps: number of output cepstral coefficients
+               number of frames and nmelfilters the length of the filterbank.
+        nceps: number of output cepstral coefficients. Default is 13.
+
     Output:
-        array of Cepstral coefficients [N x nceps]
-    Note: you can use the function dct from scipy.fftpack.realtransforms
+        Array of Cepstral coefficients after liftering [N x nceps].
     """
-     # Apply DCT to the log Mel spectrum to get the Cepstral coefficients
-    cepstral_coeffs = dct(input, n=nceps)
-    
+    # Apply DCT to the log Mel spectrum to get the Cepstral coefficients
+    # We specify 'type=2' for the DCT as it is the most common type used in signal processing
+    cepstral_coeffs = dct(input, type=2, norm='ortho', axis=-1)
+
     # Select only the first 'nceps' coefficients since those contain most of the signal information
-    return cepstral_coeffs[:, :nceps]
+    cepstral_coeffs = cepstral_coeffs[:, :nceps]
+
+    # Apply liftering to the Cepstral coefficients
+    #cepstral_coeffs_lifted = lifter(cepstral_coeffs, nceps)
+
+    return cepstral_coeffs
 
 def dtw(x, y, dist):
     """Dynamic Time Warping.
