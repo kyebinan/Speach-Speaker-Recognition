@@ -65,18 +65,25 @@ def enframe(samples, winlen, winshift):
         in the input signal
     """
     # Total number of windows
-    num_windows = 1 + (len(samples) - winlen) // winshift
+    #num_windows = 1 + (len(samples) - winlen) // winshift
     
     # Initialize the output array
-    frames = np.zeros((num_windows, winlen))
+    #frames = np.zeros((num_windows, winlen))
     
     # Populate the frames
-    for i in range(num_windows):
-        start = i * winshift
-        end = start + winlen
-        frames[i, :] = samples[start:end]
+    #for i in range(num_windows):
+    #    start = i * winshift
+    #    end = start + winlen
+    #    frames[i, :] = samples[start:end]
+
+    window = []
+    p = 0
+
+    while (p < len(samples) - winlen):
+        window.append(samples[p:p+winlen])
+        p += winshift
     
-    return frames
+    return np.array(window)
 
     
 def preemp(input, p=0.97):
@@ -189,7 +196,9 @@ def cepstrum(input, nceps=13):
     """
     # Apply DCT to the log Mel spectrum to get the Cepstral coefficients
     # We specify 'type=2' for the DCT as it is the most common type used in signal processing
-    cepstral_coeffs = dct(input, type=2, norm='ortho', axis=-1)
+    #cepstral_coeffs = dct(input, type=2, norm='ortho', axis=-1)
+    cepstral_coeffs = dct(input)
+    
 
     # Select only the first 'nceps' coefficients since those contain most of the signal information
     cepstral_coeffs = cepstral_coeffs[:, :nceps]
