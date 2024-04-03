@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 from lab1_tools import *
 from scipy.signal import lfilter
 from scipy.signal import hamming
@@ -58,33 +59,22 @@ def enframe(samples, winlen, winshift):
     Slices the input samples into overlapping windows.
 
     Args:
+        samples: speech samples
         winlen: window length in samples.
         winshift: shift of consecutive windows in samples
     Returns:
         numpy array [N x winlen], where N is the number of windows that fit
         in the input signal
     """
-    # Total number of windows
-    #num_windows = 1 + (len(samples) - winlen) // winshift
-    
-    # Initialize the output array
-    #frames = np.zeros((num_windows, winlen))
-    
-    # Populate the frames
-    #for i in range(num_windows):
-    #    start = i * winshift
-    #    end = start + winlen
-    #    frames[i, :] = samples[start:end]
+    # We have a length of 16 640 frames, we want to split these into N windows, where each window has a length of winlen.
+    # The window sliding step is winshift, meaning we will have some overlap in the windows.
+    windows = []
 
-    window = []
     p = 0
-
-    while (p < len(samples) - winlen):
-        window.append(samples[p:p+winlen])
-        p += winshift
-    
-    return np.array(window)
-
+    while (p < len(samples) - winlen):  # While we can still form a whole window
+      windows.append(samples[p:p+winlen])
+      p += winshift
+    return np.array(windows)
     
 def preemp(input, p=0.97):
     """
@@ -102,9 +92,9 @@ def preemp(input, p=0.97):
     # Filter coefficients
     b = [1, -p]  # Numerator coefficients
     a = [1]      # Denominator coefficients, indicating a FIR filter
-    
+
     # Apply the pre-emphasis filter
-    output = lfilter(b, a, input)
+    output = scipy.signal.lfilter(b, a, input)
     return output
 
 def windowing(input):
@@ -120,19 +110,18 @@ def windowing(input):
     if you want to get the same results as in the example)
     """
     M = input.shape[1]
-    
+
     # Generate the Hamming window with the same number of samples as in a frame
     # Using sym=False to generate the periodic version of the Hamming window
     # which is more suitable for spectral analysis
-    window = hamming(M, sym=False)
-    
+    window = scipy.signal.windows.hamming(M, sym=False)
+
     # Apply the window to each frame
     # This is done by element-wise multiplication of each frame by the window
     output = input * window
-    
     return output
 
-def powerSpectrum(input, nfft):
+def powerSpectrum(input, nfft=512):
     """
     Calculates the power spectrum of the input signal, that is the square of the modulus of the FFT
 
@@ -145,14 +134,14 @@ def powerSpectrum(input, nfft):
     Note: you can use the function fft from scipy.fftpack
     """
     # Apply FFT on each frame and take the first nfft components
-    fft_result = fft(input, n=nfft)
-    
+    fft_result = scipy.fftpack.fft(input, n=nfft)
+
     # Calculate the power spectrum for each frame
     # This is done by taking the square of the magnitude of the FFT result
     # np.abs(fft_result) computes the magnitude (sqrt(re^2 + im^2))
     # Squaring the magnitude gives us the power spectrum
     output = np.abs(fft_result) ** 2
-    
+
     return output
 
 def logMelSpectrum(input, samplingrate):
@@ -169,44 +158,32 @@ def logMelSpectrum(input, samplingrate):
     Note: use the trfbank function provided in lab1_tools.py to calculate the filterbank shapes and
           nmelfilters
     """
-    nfft = input.shape[1]
     # Calculate the Mel filterbank
-    mel_filterbank = trfbank(samplingrate, nfft)
-    
+    mel_filterbank  = trfbank(fs=samplingrate, nfft=input.shape[1])
+
     # Apply the Mel filterbank to the power spectrum (matrix multiplication)
     mel_spectrum = np.dot(input, mel_filterbank.T)
-    
+
     # Compute the logarithm of the Mel spectrum
     log_mel_spectrum = np.log(mel_spectrum + np.finfo(float).eps)
-    
+
     return log_mel_spectrum
 
-def cepstrum(input, nceps=13):
+def cepstrum(input, nceps):
     """
-    Calculates Cepstral coefficients from mel spectrum applying Discrete Cosine Transform (DCT)
-    and applies liftering to correct the coefficient range.
+    Calulates Cepstral coefficients from mel spectrum applying Discrete Cosine Transform
 
     Args:
         input: array of log outputs of Mel scale filterbank [N x nmelfilters] where N is the
-               number of frames and nmelfilters the length of the filterbank.
-        nceps: number of output cepstral coefficients. Default is 13.
-
+               number of frames and nmelfilters the length of the filterbank
+        nceps: number of output cepstral coefficients
     Output:
-        Array of Cepstral coefficients after liftering [N x nceps].
+        array of Cepstral coefficients [N x nceps]
+    Note: you can use the function dct from scipy.fftpack.realtransforms
     """
-    # Apply DCT to the log Mel spectrum to get the Cepstral coefficients
-    # We specify 'type=2' for the DCT as it is the most common type used in signal processing
-    #cepstral_coeffs = dct(input, type=2, norm='ortho', axis=-1)
-    cepstral_coeffs = dct(input)
-    
-
-    # Select only the first 'nceps' coefficients since those contain most of the signal information
-    cepstral_coeffs = cepstral_coeffs[:, :nceps]
-
-    # Apply liftering to the Cepstral coefficients
-    #cepstral_coeffs_lifted = lifter(cepstral_coeffs, nceps)
-
-    return cepstral_coeffs
+    # from the lab description seems like putting n=nceps will affect the output
+    # so I instead pick them out only after the computation is complete.
+    return scipy.fftpack.dct(x=input)[:, 0:nceps]
 
 def dtw(x, y, dist):
     """Dynamic Time Warping.
@@ -224,3 +201,15 @@ def dtw(x, y, dist):
 
     Note that you only need to define the first output for this exercise.
     """
+
+    N, M = len(x), len(y)
+    AD = np.full((N+1, M+1), np.inf)
+    AD[0, 0] = 0
+
+    for i in range(1, N+1):
+        for j in range(1, M+1):
+            cost = dist(x[i-1], y[j-1])
+            AD[i, j] = cost + min(AD[i-1, j], AD[i, j-1], AD[i-1, j-1])
+    
+    d = AD[N, M] / (N + M)
+    return d
