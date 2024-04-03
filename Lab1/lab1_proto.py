@@ -186,33 +186,29 @@ def cepstrum(input, nceps):
     return scipy.fftpack.dct(x=input)[:, 0:nceps]
 
 def dtw(local_distances):
-    """Dynamic Time Warping.
+    """
+    Perform Dynamic Time Warping (DTW) on a matrix of local distances between two sequences.
+
+    Dynamic Time Warping computes the optimal alignment between two sequences by minimizing
+    the cumulative distance between them. This function takes a matrix of local distances, where
+    each element (i, j) represents the distance between element i of the first sequence and element
+    j of the second sequence, and calculates the global distance that represents the total cost of
+    the optimal sequence alignment. The function returns the normalized global distance, which
+    accounts for the lengths of the sequences to allow comparison between pairs of sequences of
+    different lengths.
 
     Args:
-        x, y: arrays of size NxD and MxD respectively, where D is the dimensionality
-              and N, M are the respective lenghts of the sequences
-        dist: distance function (can be used in the code as dist(x[i], y[j]))
+        local_distances (np.ndarray): A 2D NumPy array of shape [N, M], where N is the length
+            of the first sequence, M is the length of the second sequence, and each element (i, j)
+            represents the local distance between the i-th element of the first sequence and the
+            j-th element of the second sequence.
 
-    Outputs:
-        d: global distance between the sequences (scalar) normalized to len(x)+len(y)
-        LD: local distance between frames from x and y (NxM matrix)
-        AD: accumulated distance between frames of x and y (NxM matrix)
-        path: best path thtough AD
-
-    Note that you only need to define the first output for this exercise.
+    Returns:
+        float: The normalized global distance between the two sequences, which is a scalar
+            value representing the total cost of the optimal alignment between the sequences.
+            The normalization is performed by dividing the total cost by the sum of the lengths
+            of the two sequences (N + M).
     """
-
-    # N, M = len(x), len(y)
-    # AD = np.full((N+1, M+1), np.inf)
-    # AD[0, 0] = 0
-
-    # for i in range(1, N+1):
-    #     for j in range(1, M+1):
-    #         cost = dist(x[i-1], y[j-1])
-    #         AD[i, j] = cost + min(AD[i-1, j], AD[i, j-1], AD[i-1, j-1])
-    
-    # d = AD[N, M] / (N + M)
-    # return d
 
     N, M = local_distances.shape
     AD = np.full((N+1, M+1), np.inf)
