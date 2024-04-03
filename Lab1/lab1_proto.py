@@ -185,7 +185,7 @@ def cepstrum(input, nceps):
     # so I instead pick them out only after the computation is complete.
     return scipy.fftpack.dct(x=input)[:, 0:nceps]
 
-def dtw(x, y, dist):
+def dtw(local_distances):
     """Dynamic Time Warping.
 
     Args:
@@ -202,14 +202,25 @@ def dtw(x, y, dist):
     Note that you only need to define the first output for this exercise.
     """
 
-    N, M = len(x), len(y)
+    # N, M = len(x), len(y)
+    # AD = np.full((N+1, M+1), np.inf)
+    # AD[0, 0] = 0
+
+    # for i in range(1, N+1):
+    #     for j in range(1, M+1):
+    #         cost = dist(x[i-1], y[j-1])
+    #         AD[i, j] = cost + min(AD[i-1, j], AD[i, j-1], AD[i-1, j-1])
+    
+    # d = AD[N, M] / (N + M)
+    # return d
+
+    N, M = local_distances.shape
     AD = np.full((N+1, M+1), np.inf)
     AD[0, 0] = 0
-
     for i in range(1, N+1):
         for j in range(1, M+1):
-            cost = dist(x[i-1], y[j-1])
+            cost = local_distances[i-1, j-1]
             AD[i, j] = cost + min(AD[i-1, j], AD[i, j-1], AD[i-1, j-1])
     
-    d = AD[N, M] / (N + M)
+    d = AD[N, M] / (N + M)  # Normalized global distance
     return d
