@@ -5,6 +5,7 @@ from scipy.signal import lfilter
 from scipy.signal import hamming
 from scipy.fftpack import fft
 from scipy.fftpack.realtransforms import dct
+import matplotlib.pyplot as plt
 
 
 
@@ -185,38 +186,60 @@ def cepstrum(input, nceps):
     # so I instead pick them out only after the computation is complete.
     return scipy.fftpack.dct(x=input)[:, 0:nceps]
 
-def dtw(local_distances):
+def dtw(local_distances, plot_best_path=False):
     """
     Perform Dynamic Time Warping (DTW) on a matrix of local distances between two sequences.
-
-    Dynamic Time Warping computes the optimal alignment between two sequences by minimizing
-    the cumulative distance between them. This function takes a matrix of local distances, where
-    each element (i, j) represents the distance between element i of the first sequence and element
-    j of the second sequence, and calculates the global distance that represents the total cost of
-    the optimal sequence alignment. The function returns the normalized global distance, which
-    accounts for the lengths of the sequences to allow comparison between pairs of sequences of
-    different lengths.
+    Optionally plots the best path of alignment.
 
     Args:
         local_distances (np.ndarray): A 2D NumPy array of shape [N, M], where N is the length
-            of the first sequence, M is the length of the second sequence, and each element (i, j)
-            represents the local distance between the i-th element of the first sequence and the
-            j-th element of the second sequence.
+            of the first sequence, M is the length of the second sequence.
+        plot_best_path (bool): If True, the function will plot the best alignment path over
+            the matrix of local distances.
 
     Returns:
-        float: The normalized global distance between the two sequences, which is a scalar
-            value representing the total cost of the optimal alignment between the sequences.
-            The normalization is performed by dividing the total cost by the sum of the lengths
-            of the two sequences (N + M).
+        float: The normalized global distance between the two sequences.
     """
-
     N, M = local_distances.shape
-    AD = np.full((N+1, M+1), np.inf)
+    AD = np.full((N+1, M+1), np.inf)  # Accumulated distance matrix
     AD[0, 0] = 0
+
+    # Populate the accumulated distance matrix
     for i in range(1, N+1):
         for j in range(1, M+1):
             cost = local_distances[i-1, j-1]
             AD[i, j] = cost + min(AD[i-1, j], AD[i, j-1], AD[i-1, j-1])
     
     d = AD[N, M] / (N + M)  # Normalized global distance
+
+    # Plot the best path if requested
+    if plot_best_path:
+        path = []
+        i, j = N, M
+        while i > 0 or j > 0:
+            path.append((i, j))
+            min_cost_dir = np.argmin([AD[i-1, j-1], AD[i-1, j], AD[i, j-1]])
+            if min_cost_dir == 0:
+                i -= 1
+                j -= 1
+            elif min_cost_dir == 1:
+                i -= 1
+            else:
+                j -= 1
+        path.append((0, 0))
+        path = path[::-1]  # Reverse the path to start from the beginning
+
+        # Plotting
+        plt.figure(figsize=(10, 8))
+        plt.imshow(local_distances, cmap='viridis', origin='lower')
+        plt.colorbar(label='Local Distance')
+        # Unzip the path into two lists of x and y indices
+        y, x = zip(*path)
+        plt.plot(x, y, marker='o', color='r', markersize=3, linestyle='-', linewidth=1, label='Optimal Path')
+        plt.xlabel('Sequence 2')
+        plt.ylabel('Sequence 1')
+        plt.title('DTW Optimal Path')
+        plt.legend()
+        plt.show()
+
     return d
