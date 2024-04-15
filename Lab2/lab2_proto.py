@@ -1,5 +1,5 @@
 import numpy as np
-from tools2 import *
+from lab2_tools import *
 
 def concatTwoHMMs(hmm1, hmm2):
     """ Concatenates 2 HMM models
@@ -29,6 +29,44 @@ def concatTwoHMMs(hmm1, hmm2):
 
     See also: the concatenating_hmms.pdf document in the lab package
     """
+
+    HMM1_dim = hmm1["startprob"].shape[0]
+    HMM2_dim = hmm2["startprob"].shape[0]
+    N = HMM1_dim + HMM2_dim - 1
+
+    # We combine the two matrices but eliminate the non-emiting state between the models
+    # Ex, PI_1 = 1x4 and PI_2 = 1x4 --> PI_Concat = 1x7
+    PI_concat = np.zeros(shape= (N))
+    transmat_concat = np.zeros(shape=(N, N))
+
+    for col_id in range(N):
+      if col_id < HMM1_dim - 1:
+        # Just HMM1 values
+        PI_concat[col_id] = hmm1["startprob"][col_id]
+      else:
+        # Last startprob of HMM1  multiplied by startprob of HMM2 for current column
+        PI_concat[col_id] = hmm1["startprob"][-1] * hmm2["startprob"][(col_id + 1) % HMM2_dim]
+
+    for row_id in range(N-1):
+      for col_id in range(N):
+        if col_id < HMM1_dim - 1 and row_id < HMM1_dim - 1:
+          # Just HMM1 values
+          transmat_concat[row_id][col_id] = hmm1["transmat"][row_id][col_id]
+        elif col_id > HMM1_dim - 1 and row_id < HMM1_dim:
+          # last value of HMM1 multiplied by startprob of HMM2 for current column
+          transmat_concat[row_id][col_id] = hmm1["transmat"][row_id][-1] * hmm2["startprob"][(col_id + 1) % HMM2_dim]
+        else:
+          # Just HMM2 values
+          transmat_concat[row_id][col_id] = hmm2["transmat"][(row_id+1) % HMM2_dim][(col_id+1)% HMM2_dim]
+
+    # The final row is filled with zeros except for in the last column where there's a one
+    transmat_concat[-1][-1] = 1
+
+    means_concat = np.concatenate((hmm1["means"], hmm2["means"]), axis=0)
+    covars_concat = np.concatenate((hmm1["covars"], hmm2["covars"]), axis=0)
+
+    concat_HMM = {"startprob": PI_concat, "transmat": transmat_concat, "means": means_concat, "covars": covars_concat}
+    return concat_HMM
 
 # this is already implemented, but based on concat2HMMs() above
 def concatHMMs(hmmmodels, namelist):
@@ -91,6 +129,16 @@ def forward(log_emlik, log_startprob, log_transmat):
     Output:
         forward_prob: NxM array of forward log probabilities for each of the M states in the model
     """
+    N, M = log_emlik.shape
+    forward_prob = np.zeros(shape=(N,M))
+    forward_prob[0] = log_startprob[:] + log_transmat[0]
+
+    for n in range(1, N):
+      for m in range(M):
+        # forward prob from previous frame + transition prob to current state 
+        forward_prob[n][m] = logsumexp( forward_prob[n-1][:] + log_transmat[:][m] ) + log_emlik[n][m]
+
+    return forward_prob
 
 def backward(log_emlik, log_startprob, log_transmat):
     """Backward (beta) probabilities in log domain.
@@ -103,6 +151,15 @@ def backward(log_emlik, log_startprob, log_transmat):
     Output:
         backward_prob: NxM array of backward log probabilities for each of the M states in the model
     """
+    N, M = log_emlik.shape
+    backward_prob = np.zeros(shape=(N,M))
+
+    for n in range(N-2, -1, -1):
+      for m in range(M):
+        # transition prob from current state to all state + emission prob from prev frame + backward prob from prev frame 
+        backward_prob[n][m] = logsumexp( log_transmat[m][:] + log_emlik[n+1][:] + backward_prob[n+1][:] )
+
+    return backward_prob
 
 def viterbi(log_emlik, log_startprob, log_transmat, forceFinalState=True):
     """Viterbi path.
@@ -130,6 +187,10 @@ def statePosteriors(log_alpha, log_beta):
     Output:
         log_gamma: NxM array of gamma probabilities for each of the M states in the model
     """
+    N, M = log_alpha.shape
+
+    log_gamma = log_alpha + log_beta - logsumexp(log_alpha[N-1])
+    return log_gamma
 
 def updateMeanAndVar(X, log_gamma, varianceFloor=5.0):
     """ Update Gaussian parameters with diagonal covariance
