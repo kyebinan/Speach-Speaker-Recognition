@@ -129,14 +129,17 @@ def forward(log_emlik, log_startprob, log_transmat):
     Output:
         forward_prob: NxM array of forward log probabilities for each of the M states in the model
     """
+    print(log_startprob.shape)
+    print(log_transmat.shape)
+
     N, M = log_emlik.shape
-    forward_prob = np.zeros(shape=(N,M))
-    forward_prob[0] = log_startprob[:] + log_transmat[0]
+    forward_prob = np.zeros(log_emlik.shape)
+
+    forward_prob[0, :] = log_startprob[:-1] + log_emlik[0, :]
 
     for n in range(1, N):
-      for m in range(M):
-        # forward prob from previous frame + transition prob to current state 
-        forward_prob[n][m] = logsumexp( forward_prob[n-1][:] + log_transmat[:][m] ) + log_emlik[n][m]
+        for j in range(M):
+            forward_prob[n, j] = logsumexp(forward_prob[n-1, :] + log_transmat[:-1, j]) + log_emlik[n, j]
 
     return forward_prob
 
@@ -152,12 +155,12 @@ def backward(log_emlik, log_startprob, log_transmat):
         backward_prob: NxM array of backward log probabilities for each of the M states in the model
     """
     N, M = log_emlik.shape
-    backward_prob = np.zeros(shape=(N,M))
+    backward_prob = np.zeros_like(log_emlik)
 
     for n in range(N-2, -1, -1):
       for m in range(M):
-        # transition prob from current state to all state + emission prob from prev frame + backward prob from prev frame 
-        backward_prob[n][m] = logsumexp( log_transmat[m][:] + log_emlik[n+1][:] + backward_prob[n+1][:] )
+        # transition prob from current state to all state + emission prob from prev frame + backward prob from prev frame
+        backward_prob[n][m] = logsumexp( log_transmat[m][:-1] + log_emlik[n+1][:] + backward_prob[n+1][:] )
 
     return backward_prob
 
