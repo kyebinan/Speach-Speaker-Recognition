@@ -138,8 +138,8 @@ def forward(log_emlik, log_startprob, log_transmat):
     forward_prob[0, :] = log_startprob[:-1] + log_emlik[0, :]
 
     for n in range(1, N):
-        for j in range(M):
-            forward_prob[n, j] = logsumexp(forward_prob[n-1, :] + log_transmat[:-1, j]) + log_emlik[n, j]
+        for m in range(M):
+            forward_prob[n, m] = logsumexp(forward_prob[n-1, :] + log_transmat[:-1, m]) + log_emlik[n, m]
 
     return forward_prob
 
