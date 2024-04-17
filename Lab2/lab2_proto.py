@@ -286,3 +286,55 @@ def baum_welch(X, log_startprob, log_transmat, means, covars, n_iter=10, varianc
         means, covars = updateMeanAndVar(X, log_gamma, varianceFloor=varianceFloor)
 
     return means, covars
+
+
+
+def score_forward(HMM, data):
+    correct_guesses = 0
+
+    for utterance in data:
+        best_likelihood = -np.inf
+        guessed_word = None  
+        
+        for word, wordHMM in HMM.items():
+            obsloglik = log_multivariate_normal_density_diag(utterance['lmfcc'], wordHMM['means'], wordHMM['covars'])
+            logalpha = forward(obsloglik, np.log(wordHMM['startprob']), np.log(wordHMM['transmat']))
+
+            current_word_likelihood = logsumexp(logalpha[-1,:])
+
+            if current_word_likelihood > best_likelihood:
+                best_likelihood = current_word_likelihood
+                guessed_word = word
+
+        if utterance['digit'] == guessed_word:
+            correct_guesses += 1
+
+    print(f"Correct guesses: {correct_guesses}")
+    accuracy = 100 * correct_guesses / len(data)
+    return accuracy
+
+
+
+def score_viterbi(HMM, data):
+    correct_guesses = 0
+
+    for utterance in data:
+        best_likelihood = -np.inf
+        guessed_word = None  
+        
+        for word, wordHMM in HMM.items():
+            obsloglik = log_multivariate_normal_density_diag(utterance['lmfcc'], wordHMM['means'], wordHMM['covars'])
+            viterbi_loglik, _ = viterbi(obsloglik, np.log(wordHMM['startprob'][:-1]), np.log(wordHMM['transmat'][:-1]))
+
+            current_word_likelihood = viterbi_loglik
+            
+            if current_word_likelihood > best_likelihood:
+                best_likelihood = current_word_likelihood
+                guessed_word = word
+
+        if utterance['digit'] == guessed_word:
+            correct_guesses += 1
+
+    print(f"Correct guesses: {correct_guesses}")
+    accuracy = 100 * correct_guesses / len(data)
+    return accuracy
