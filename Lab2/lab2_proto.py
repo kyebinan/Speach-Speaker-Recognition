@@ -249,23 +249,20 @@ def updateMeanAndVar(X, log_gamma, varianceFloor=5.0):
          means: MxD mean vectors for each state
          covars: MxD covariance (variance) vectors for each state
     """
-
     gamma = np.exp(log_gamma)  # Convert log posteriors to probabilities
     sum_gamma = np.sum(gamma, axis=0)  # Sum of posteriors for each state
+    safe_sum_gamma = np.where(sum_gamma == 0, 1, sum_gamma)  # Avoid division by zero
 
-    # Ensure no zero divisions; relevant when no significant posterior weight is assigned to a state
-    safe_sum_gamma = np.where(sum_gamma == 0, 1, sum_gamma)
-
-    # Calculate means
-    means = np.dot(gamma.T, X) / safe_sum_gamma[:, None]  # MxD
+    means = np.dot(gamma.T, X) / safe_sum_gamma[:, None]  # Calculate means
 
     # Calculate covariances
-    covars = np.zeros_like(means)  # MxD
+    covars = np.zeros((means.shape[0], X.shape[1]))  # Initialize covariance matrix
     for m in range(means.shape[0]):  # Iterate over each state
-        # Weighted sum of squared differences
         diff = X - means[m]
-        weighted_sumsq = np.dot(gamma[:, m] * diff.T, diff)
-        covars[m] = weighted_sumsq / safe_sum_gamma[m]
+        # Reshape gamma[:, m] for broadcasting
+        gamma_reshaped = gamma[:, m].reshape(-1, 1)
+        weighted_sumsq = np.einsum('ij,ik->jk', gamma_reshaped * diff, diff)  # Using einsum to compute outer product and sum
+        covars[m] = np.diag(weighted_sumsq) / safe_sum_gamma[m]  # Store only the diagonal elements
 
     # Apply variance floor
     covars[covars < varianceFloor] = varianceFloor
