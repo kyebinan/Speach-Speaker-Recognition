@@ -51,11 +51,11 @@ def concatTwoHMMs(hmm1, hmm2):
     for i in range(K):
       for j in range(K+1):
         if i < HMM1_dim and j < HMM1_dim:
-            concat_HMM["transmat"][i, j] = hmm1["transmat"][i][j]
+            concat_HMM["transmat"][i][j] = hmm1["transmat"][i][j]
         elif i < HMM1_dim and j >= HMM1_dim:
-            concat_HMM["transmat"][i, j] = hmm1["transmat"][i][-1] * hmm2["startprob"][j - HMM1_dim]
+            concat_HMM["transmat"][i][j] = hmm1["transmat"][i][-1] * hmm2["startprob"][j - HMM1_dim]
         elif i >= HMM1_dim and j >= HMM1_dim:
-            concat_HMM["transmat"][i, j] = hmm2["transmat"][i - HMM1_dim][j - HMM1_dim]
+            concat_HMM["transmat"][i][j] = hmm2["transmat"][i - HMM1_dim][j - HMM1_dim]
     # final row is just zeros except the final column which is 1
     concat_HMM["transmat"][-1][-1] = 1
 
