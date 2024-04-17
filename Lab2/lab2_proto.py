@@ -118,6 +118,21 @@ def gmmloglik(log_emlik, weights):
         gmmloglik: scalar, log likelihood of data given the GMM model.
     """
 
+    # Convert weights to log space to use in log-sum-exp
+    log_weights = np.log(weights)
+
+    # Log-sum-exp trick to avoid numerical underflow:
+    # For each observation, compute the log-sum-exp of the weighted log likelihoods across all components
+    max_log_emlik = np.max(log_emlik, axis=1, keepdims=True)
+    weighted_log_probs = log_emlik + log_weights
+    logsumexp = max_log_emlik + np.log(np.sum(np.exp(weighted_log_probs - max_log_emlik), axis=1))
+
+    # Sum log likelihoods over all observations
+    gmmloglik = np.sum(logsumexp)
+
+    return gmmloglik
+
+
 def forward(log_emlik, log_startprob, log_transmat):
     """Forward (alpha) probabilities in log domain.
 
@@ -143,6 +158,7 @@ def forward(log_emlik, log_startprob, log_transmat):
 
     return forward_prob
 
+
 def backward(log_emlik, log_startprob, log_transmat):
     """Backward (beta) probabilities in log domain.
 
@@ -164,6 +180,7 @@ def backward(log_emlik, log_startprob, log_transmat):
 
     return backward_prob
 
+
 def viterbi(log_emlik, log_startprob, log_transmat, forceFinalState=True):
     """Viterbi path.
 
@@ -178,6 +195,38 @@ def viterbi(log_emlik, log_startprob, log_transmat, forceFinalState=True):
         viterbi_loglik: log likelihood of the best path
         viterbi_path: best path
     """
+
+    N, M = log_emlik.shape
+    V = np.full((N, M), -np.inf)  # Log probabilities, initialized very small
+    B = np.zeros((N, M), dtype=int)  # Backtracking pointers
+
+    # Initialization
+    V[0, :] = log_startprob + log_emlik[0, :]
+
+    # Dynamic programming
+    for n in range(1, N):
+        for j in range(M):
+            # Vector of probabilities from each state i at time n-1 to state j at time n
+            log_probs = V[n-1, :] + log_transmat[:, j] + log_emlik[n, j]
+            V[n, j] = np.max(log_probs)
+            B[n, j] = np.argmax(log_probs)
+
+    # Termination: Find the best last state
+    if forceFinalState:
+        viterbi_loglik = V[-1, -1]  # force the path to end in the last state
+        last_state = M - 1
+    else:
+        viterbi_loglik = np.max(V[-1, :])
+        last_state = np.argmax(V[-1, :])
+
+    # Backtrack to find the best path
+    viterbi_path = np.zeros(N, dtype=int)
+    viterbi_path[-1] = last_state
+    for n in range(N-2, -1, -1):
+        viterbi_path[n] = B[n+1, viterbi_path[n+1]]
+
+    return viterbi_loglik, viterbi_path
+
 
 def statePosteriors(log_alpha, log_beta):
     """State posterior (gamma) probabilities in log domain.
@@ -195,6 +244,7 @@ def statePosteriors(log_alpha, log_beta):
     log_gamma = log_alpha + log_beta - logsumexp(log_alpha[N-1])
     return log_gamma
 
+
 def updateMeanAndVar(X, log_gamma, varianceFloor=5.0):
     """ Update Gaussian parameters with diagonal covariance
 
@@ -210,3 +260,25 @@ def updateMeanAndVar(X, log_gamma, varianceFloor=5.0):
          means: MxD mean vectors for each state
          covars: MxD covariance (variance) vectors for each state
     """
+
+    gamma = np.exp(log_gamma)  # Convert log posteriors to probabilities
+    sum_gamma = np.sum(gamma, axis=0)  # Sum of posteriors for each state
+
+    # Ensure no zero divisions; relevant when no significant posterior weight is assigned to a state
+    safe_sum_gamma = np.where(sum_gamma == 0, 1, sum_gamma)
+
+    # Calculate means
+    means = np.dot(gamma.T, X) / safe_sum_gamma[:, None]  # MxD
+
+    # Calculate covariances
+    covars = np.zeros_like(means)  # MxD
+    for m in range(means.shape[0]):  # Iterate over each state
+        # Weighted sum of squared differences
+        diff = X - means[m]
+        weighted_sumsq = np.dot(gamma[:, m] * diff.T, diff)
+        covars[m] = weighted_sumsq / safe_sum_gamma[m]
+
+    # Apply variance floor
+    covars[covars < varianceFloor] = varianceFloor
+
+    return means, covars
