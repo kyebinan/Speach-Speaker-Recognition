@@ -133,6 +133,31 @@ def gmmloglik(log_emlik, weights):
     return gmmloglik
 
 
+# def forward(log_emlik, log_startprob, log_transmat):
+#     """Forward (alpha) probabilities in log domain.
+
+#     Args:
+#         log_emlik: NxM array of emission log likelihoods, N frames, M states
+#         log_startprob: log probability to start in state i
+#         log_transmat: log transition probability from state i to j
+
+#     Output:
+#         forward_prob: NxM array of forward log probabilities for each of the M states in the model
+#     """
+#     print(log_startprob.shape)
+#     print(log_transmat.shape)
+
+#     N, M = log_emlik.shape
+#     forward_prob = np.zeros(log_emlik.shape)
+
+#     forward_prob[0, :] = log_startprob[:-1] + log_emlik[0, :]
+
+#     for n in range(1, N):
+#         for m in range(M):
+#             forward_prob[n, m] = logsumexp(forward_prob[n-1, :] + log_transmat[:-1, m]) + log_emlik[n, m]
+
+#     return forward_prob
+
 def forward(log_emlik, log_startprob, log_transmat):
     """Forward (alpha) probabilities in log domain.
 
@@ -144,20 +169,42 @@ def forward(log_emlik, log_startprob, log_transmat):
     Output:
         forward_prob: NxM array of forward log probabilities for each of the M states in the model
     """
-    print(log_startprob.shape)
-    print(log_transmat.shape)
-
     N, M = log_emlik.shape
-    forward_prob = np.zeros(log_emlik.shape)
+    forward_prob = np.full((N, M), -np.inf)  
 
-    forward_prob[0, :] = log_startprob[:-1] + log_emlik[0, :]
+    # Initialize first row of forward_prob matrix
+    forward_prob[0] = log_startprob + log_emlik[0]
 
+    # Fill in the rest of the forward_prob matrix
     for n in range(1, N):
-        for m in range(M):
-            forward_prob[n, m] = logsumexp(forward_prob[n-1, :] + log_transmat[:-1, m]) + log_emlik[n, m]
+        for j in range(M):
+            # Vectorized computation of log sum of exponentials
+            log_probs = forward_prob[n-1] + log_transmat[:, j]
+            forward_prob[n, j] = np.log(np.sum(np.exp(log_probs))) + log_emlik[n, j]
 
     return forward_prob
 
+
+# def backward(log_emlik, log_startprob, log_transmat):
+#     """Backward (beta) probabilities in log domain.
+
+#     Args:
+#         log_emlik: NxM array of emission log likelihoods, N frames, M states
+#         log_startprob: log probability to start in state i
+#         log_transmat: transition log probability from state i to j
+
+#     Output:
+#         backward_prob: NxM array of backward log probabilities for each of the M states in the model
+#     """
+#     N, M = log_emlik.shape
+#     backward_prob = np.zeros_like(log_emlik)
+
+#     for n in range(N-2, -1, -1):
+#       for m in range(M):
+#         # transition prob from current state to all state + emission prob from prev frame + backward prob from prev frame
+#         backward_prob[n][m] = logsumexp( log_transmat[m][:-1] + log_emlik[n+1][:] + backward_prob[n+1][:] )
+
+#     return backward_prob
 
 def backward(log_emlik, log_startprob, log_transmat):
     """Backward (beta) probabilities in log domain.
@@ -171,14 +218,19 @@ def backward(log_emlik, log_startprob, log_transmat):
         backward_prob: NxM array of backward log probabilities for each of the M states in the model
     """
     N, M = log_emlik.shape
-    backward_prob = np.zeros_like(log_emlik)
+    backward_prob = np.full((N, M), -np.inf)  
+    backward_prob[-1] = 0  # log(1), since the probability of the end of the sequence is 1
 
+    # Fill the backward_prob matrix from N-2 down to 0 (backward pass)
     for n in range(N-2, -1, -1):
-      for m in range(M):
-        # transition prob from current state to all state + emission prob from prev frame + backward prob from prev frame
-        backward_prob[n][m] = logsumexp( log_transmat[m][:-1] + log_emlik[n+1][:] + backward_prob[n+1][:] )
+        for i in range(M):
+            # Compute log sum of exponentials for the backward step
+            log_probs = log_transmat[i, :] + log_emlik[n + 1, :] + backward_prob[n + 1, :]
+            backward_prob[n, i] = np.log(np.sum(np.exp(log_probs)))
 
     return backward_prob
+
+
 
 
 def viterbi(log_emlik, log_startprob, log_transmat, forceFinalState=True):
