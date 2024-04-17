@@ -267,3 +267,22 @@ def updateMeanAndVar(X, log_gamma, varianceFloor=5.0):
     covars[covars < varianceFloor] = varianceFloor
 
     return means, covars
+
+
+
+def baum_welch(X, log_startprob, log_transmat, means, covars, n_iter=10, varianceFloor=5.0): 
+    for _ in range(n_iter):
+        # Calculate log emission probabilities
+        log_emlik = log_multivariate_normal_density_diag(X, means, covars)
+
+        # Forward and backward probabilities
+        log_alpha = forward(log_emlik, log_startprob, log_transmat)
+        log_beta = backward(log_emlik, log_startprob, log_transmat)  # Ensure this matches the function signature
+
+        # Calculate state posteriors (gamma)
+        log_gamma = statePosteriors(log_alpha, log_beta)
+        
+        # Update means and covariance matrices
+        means, covars = updateMeanAndVar(X, log_gamma, varianceFloor=varianceFloor)
+
+    return means, covars
