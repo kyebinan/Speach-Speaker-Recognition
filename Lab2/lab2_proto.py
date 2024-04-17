@@ -233,7 +233,6 @@ def statePosteriors(log_alpha, log_beta):
     log_gamma = log_alpha + log_beta - logsumexp(log_alpha[N-1])
     return log_gamma
 
-
 def updateMeanAndVar(X, log_gamma, varianceFloor=5.0):
     """ Update Gaussian parameters with diagonal covariance
 
