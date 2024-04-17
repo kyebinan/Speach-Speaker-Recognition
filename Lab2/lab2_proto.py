@@ -30,43 +30,76 @@ def concatTwoHMMs(hmm1, hmm2):
     See also: the concatenating_hmms.pdf document in the lab package
     """
 
-    HMM1_dim = hmm1["startprob"].shape[0]
-    HMM2_dim = hmm2["startprob"].shape[0]
-    N = HMM1_dim + HMM2_dim - 1
+    # HMM1_dim = hmm1["startprob"].shape[0]
+    # HMM2_dim = hmm2["startprob"].shape[0]
+    # N = HMM1_dim + HMM2_dim - 1
 
-    # We combine the two matrices but eliminate the non-emiting state between the models
-    # Ex, PI_1 = 1x4 and PI_2 = 1x4 --> PI_Concat = 1x7
-    PI_concat = np.zeros(shape= (N))
-    transmat_concat = np.zeros(shape=(N, N))
+    # # We combine the two matrices but eliminate the non-emiting state between the models
+    # # Ex, PI_1 = 1x4 and PI_2 = 1x4 --> PI_Concat = 1x7
+    # PI_concat = np.zeros(shape= (N))
+    # transmat_concat = np.zeros(shape=(N, N))
 
-    for col_id in range(N):
-      if col_id < HMM1_dim - 1:
-        # Just HMM1 values
-        PI_concat[col_id] = hmm1["startprob"][col_id]
-      else:
-        # Last startprob of HMM1  multiplied by startprob of HMM2 for current column
-        PI_concat[col_id] = hmm1["startprob"][-1] * hmm2["startprob"][(col_id + 1) % HMM2_dim]
+    # for col_id in range(N):
+    #   if col_id < HMM1_dim - 1:
+    #     # Just HMM1 values
+    #     PI_concat[col_id] = hmm1["startprob"][col_id]
+    #   else:
+    #     # Last startprob of HMM1  multiplied by startprob of HMM2 for current column
+    #     PI_concat[col_id] = hmm1["startprob"][-1] * hmm2["startprob"][(col_id + 1) % HMM2_dim]
 
-    for row_id in range(N-1):
-      for col_id in range(N):
-        if col_id < HMM1_dim - 1 and row_id < HMM1_dim - 1:
-          # Just HMM1 values
-          transmat_concat[row_id][col_id] = hmm1["transmat"][row_id][col_id]
-        elif col_id > HMM1_dim - 1 and row_id < HMM1_dim:
-          # last value of HMM1 multiplied by startprob of HMM2 for current column
-          transmat_concat[row_id][col_id] = hmm1["transmat"][row_id][-1] * hmm2["startprob"][(col_id + 1) % HMM2_dim]
-        else:
-          # Just HMM2 values
-          transmat_concat[row_id][col_id] = hmm2["transmat"][(row_id+1) % HMM2_dim][(col_id+1)% HMM2_dim]
+    # for row_id in range(N-1):
+    #   for col_id in range(N):
+    #     if col_id < HMM1_dim - 1 and row_id < HMM1_dim - 1:
+    #       # Just HMM1 values
+    #       transmat_concat[row_id][col_id] = hmm1["transmat"][row_id][col_id]
+    #     elif col_id > HMM1_dim - 1 and row_id < HMM1_dim:
+    #       # last value of HMM1 multiplied by startprob of HMM2 for current column
+    #       transmat_concat[row_id][col_id] = hmm1["transmat"][row_id][-1] * hmm2["startprob"][(col_id + 1) % HMM2_dim]
+    #     else:
+    #       # Just HMM2 values
+    #       transmat_concat[row_id][col_id] = hmm2["transmat"][(row_id+1) % HMM2_dim][(col_id+1)% HMM2_dim]
 
-    # The final row is filled with zeros except for in the last column where there's a one
-    transmat_concat[-1][-1] = 1
+    # # The final row is filled with zeros except for in the last column where there's a one
+    # transmat_concat[-1][-1] = 1
 
-    means_concat = np.concatenate((hmm1["means"], hmm2["means"]), axis=0)
-    covars_concat = np.concatenate((hmm1["covars"], hmm2["covars"]), axis=0)
+    # means_concat = np.concatenate((hmm1["means"], hmm2["means"]), axis=0)
+    # covars_concat = np.concatenate((hmm1["covars"], hmm2["covars"]), axis=0)
 
-    concat_HMM = {"startprob": PI_concat, "transmat": transmat_concat, "means": means_concat, "covars": covars_concat}
-    return concat_HMM
+    # concat_HMM = {"startprob": PI_concat, "transmat": transmat_concat, "means": means_concat, "covars": covars_concat}
+    # return concat_HMM
+
+    # Concatenate means and covariances directly
+    means = np.vstack((hmm1['means'], hmm2['means']))
+    covars = np.vstack((hmm1['covars'], hmm2['covars']))
+
+    # Number of states for each model (including non-emitting final state)
+    M1 = hmm1['startprob'].shape[0]
+    M2 = hmm2['startprob'].shape[0]
+
+    # Initialize the new start probability vector
+    startprob = np.zeros(M1 + M2 - 1)
+    startprob[:M1] = hmm1['startprob'] * hmm1['transmat'][-2, -1]
+
+    # Initialize the new transition matrix
+    transmat = np.zeros((M1 + M2 - 1, M1 + M2 - 1))
+    
+    # Fill the transition matrix for the first model
+    transmat[:M1-1, :M1-1] = hmm1['transmat'][:-1, :-1]
+    transmat[:M1-1, M1-1:M1+M2-2] = np.outer(hmm1['transmat'][:-1, -1], hmm2['startprob'][1:])
+
+    # Fill the transition matrix for the second model
+    transmat[M1-1:M1+M2-2, M1-1:M1+M2-2] = hmm2['transmat'][1:, 1:]
+
+    # Create the output dictionary
+    concatenatedHMM = {
+        'name': hmm1['name'] + '+' + hmm2['name'],
+        'startprob': startprob,
+        'transmat': transmat,
+        'means': means,
+        'covars': covars
+    }
+
+    return concatenatedHMM
 
 # this is already implemented, but based on concat2HMMs() above
 def concatHMMs(hmmmodels, namelist):
@@ -99,10 +132,22 @@ def concatHMMs(hmmmodels, namelist):
     Example:
        wordHMMs['o'] = concatHMMs(phoneHMMs, ['sil', 'ow', 'sil'])
     """
-    concat = hmmmodels[namelist[0]]
-    for idx in range(1,len(namelist)):
-        concat = concatTwoHMMs(concat, hmmmodels[namelist[idx]])
-    return concat
+    # concat = hmmmodels[namelist[0]]
+    # for idx in range(1,len(namelist)):
+    #     concat = concatTwoHMMs(concat, hmmmodels[namelist[idx]])
+    # return concat
+
+    if len(namelist) == 0:
+        raise ValueError("Namelist must contain at least one model name")
+
+    # Start with the first model in the list
+    combinedhmm = hmmmodels[namelist[0]]
+
+    # Iterate through the list of names and concatenate each model to the previous combination
+    for name in namelist[1:]:
+        combinedhmm = concatTwoHMMs(combinedhmm, hmmmodels[name])
+
+    return combinedhmm
 
 
 def gmmloglik(log_emlik, weights):
