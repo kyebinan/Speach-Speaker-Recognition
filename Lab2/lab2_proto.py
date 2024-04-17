@@ -30,22 +30,23 @@ def concatTwoHMMs(hmm1, hmm2):
     See also: the concatenating_hmms.pdf document in the lab package
     """
 
-    HMM1_dim = hmm1["startprob"].shape[0]
-    HMM2_dim = hmm2["startprob"].shape[0]
-    N = HMM1_dim + HMM2_dim - 1
+    HMM1_dim = len(hmm1['startprob']) - 1
+    HMM2_dim = len(hmm2['startprob']) - 1
+    K = HMM1_dim + HMM2_dim
 
-    # We combine the two matrices but eliminate the non-emiting state between the models
-    # Ex, PI_1 = 1x4 and PI_2 = 1x4 --> PI_Concat = 1x7
-    PI_concat = np.zeros(shape= (N))
-    transmat_concat = np.zeros(shape=(N, N))
+    concat_HMM = {
+        "name": hmm1["name"] + hmm2["name"],
+        "startprob": np.zeros(K+1),
+        "transmat": np.zeros((K+1, K+1)),
+        "means": np.concatenate((hmm1["means"], hmm2["means"]), axis=0),
+        "covars": np.concatenate((hmm1['covars'], hmm2['covars']), axis=0)
+    }
 
-    for col_id in range(N):
-      if col_id < HMM1_dim - 1:
-        # Just HMM1 values
-        PI_concat[col_id] = hmm1["startprob"][col_id]
+    for i in range(K):
+      if i < HMM1_dim:
+        concat_HMM['startprob'][i] = hmm1['startprob'][i]
       else:
-        # Last startprob of HMM1  multiplied by startprob of HMM2 for current column
-        PI_concat[col_id] = hmm1["startprob"][-1] * hmm2["startprob"][(col_id + 1) % HMM2_dim]
+        concat_HMM['startprob'][i] = hmm1['startprob'][-1] * hmm2['startprob'][i -  HMM1_dim]
 
     for i in range(K):
       for j in range(K+1):
@@ -91,22 +92,10 @@ def concatHMMs(hmmmodels, namelist):
     Example:
        wordHMMs['o'] = concatHMMs(phoneHMMs, ['sil', 'ow', 'sil'])
     """
-    # concat = hmmmodels[namelist[0]]
-    # for idx in range(1,len(namelist)):
-    #     concat = concatTwoHMMs(concat, hmmmodels[namelist[idx]])
-    # return concat
-
-    if len(namelist) == 0:
-        raise ValueError("Namelist must contain at least one model name")
-
-    # Start with the first model in the list
-    combinedhmm = hmmmodels[namelist[0]]
-
-    # Iterate through the list of names and concatenate each model to the previous combination
-    for name in namelist[1:]:
-        combinedhmm = concatTwoHMMs(combinedhmm, hmmmodels[name])
-
-    return combinedhmm
+    concat = hmmmodels[namelist[0]]
+    for idx in range(1,len(namelist)):
+        concat = concatTwoHMMs(concat, hmmmodels[namelist[idx]])
+    return concat
 
 
 def gmmloglik(log_emlik, weights):
