@@ -301,7 +301,7 @@ def baum_welch(X, HMM, max_iter=20, threshhold=1):
             word_likelihoods[word].append(log_lik)
 
     # return likelihood dict with all likelihood values from the training
-    return word_likelihoods, HMM
+    return word_likelihoods
 
 
 
