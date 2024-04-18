@@ -268,24 +268,40 @@ def updateMeanAndVar(X, log_gamma, varianceFloor=5.0):
 
     return means, covars
 
+def baum_welch(X, HMM, max_iter=20, threshhold=1):
+    # Dict to store all word's corresponding log likelihoods
+    word_likelihoods = {}
 
+    # Iterate over the HMMs items (key=word, value=word modell)
+    for word, word_HMM in HMM.items():
+        # Array to store all likelihod over the coming iterations
+        word_likelihoods[word] = []
 
-def baum_welch(X, log_startprob, log_transmat, means, covars, n_iter=10, varianceFloor=5.0): 
-    for _ in range(n_iter):
-        # Calculate log emission probabilities
-        log_emlik = log_multivariate_normal_density_diag(X, means, covars)
+        for i in range(max_iter):
+            #-- Step 1: Compute alpha, beta and gamma --------------------------------------------------------------------
 
-        # Forward and backward probabilities
-        log_alpha = forward(log_emlik, log_startprob, log_transmat)
-        log_beta = backward(log_emlik, log_startprob, log_transmat)  # Ensure this matches the function signature
+            # Calculate log emission probabilities
+            obsloglik = log_multivariate_normal_density_diag(X, word_HMM["means"], word_HMM["covars"])
 
-        # Calculate state posteriors (gamma)
-        log_gamma = statePosteriors(log_alpha, log_beta)
-        
-        # Update means and covariance matrices
-        means, covars = updateMeanAndVar(X, log_gamma, varianceFloor=varianceFloor)
+            # Calculate forward, backward, and gamma
+            log_alpha = forward(obsloglik, np.log(word_HMM["startprob"]), np.log(word_HMM["transmat"]))
+            log_beta = backward(obsloglik, np.log(word_HMM["startprob"]), np.log(word_HMM["transmat"]))
+            log_gamma = statePosteriors(log_alpha, log_beta)
 
-    return means, covars
+            #-- Step 2: Update Mean and Covar ----------------------------------------------------------------------------
+            word_HMM["means"], word_HMM["covars"] = updateMeanAndVar(X, log_gamma)
+
+            #-- Step 3: Compute log likelihood and check if it has increased increase ------------------------------------
+            log_lik = logsumexp(log_alpha[-1,:])
+
+            # if false then break and go on to the next word's retraining
+            if i > 0 and np.abs(log_lik - word_likelihoods[word][-1]) < threshhold:
+                break
+            # if true then go back to step 1
+            word_likelihoods[word].append(log_lik)
+
+    # return likelihood dict with all likelihood values from the training
+    return word_likelihoods
 
 
 
