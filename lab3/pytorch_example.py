@@ -26,7 +26,7 @@ def count_parameters(net):
 # instantiate the network and print the structure
 net = Net()
 print(net)
-print('number of prameters:'count_parameters(net))
+print('number of prameters:', count_parameters(net))
 
 # define your loss criterion (see https://pytorch.org/docs/stable/nn.html#loss-functions)
 # criterion = ... 
