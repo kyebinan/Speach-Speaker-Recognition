@@ -1,6 +1,7 @@
 import numpy as np
-# from lab3_tools import *
+from lab3_tools import *
 from lab2_proto import *
+from lab1_proto import mfcc, mspec
 
 def words2phones(wordList, pronDict, addSilence=True, addShortPause=True):
    """ word2phones: converts word level to phone level transcription adding silence
@@ -53,3 +54,29 @@ def forcedAlignment(lmfcc, phoneHMMs, phoneTrans):
    viterbiStateIDPath = [stateTrans[i] for i in viterbi_path]
 
    return viterbiStateIDPath
+
+def extractData(filepath, phoneHMMs, stateList, prondict):
+   data = []
+   for root, dirs, files in os.walk(filepath):
+      for file in files:
+         if file.endswith('.wav'):
+            # Reading samples and samling rate from current file utterance
+            filename = os.pot.join(root, file)
+            samples, samplingrate = loadAudio(filename)
+
+            # Functions from lab 1 to read lmfcc and mspec
+            lmfcc = mfcc(samples)
+            mspec = mspec(samples)
+            
+            # Computing the word and phoneme transition matrix for current utterance
+            wordTrans = list(path2info(filename)[2])
+            phoneTrans = words2phones(wordTrans, prondict)
+
+            # Current utterance sequence might be like 'ah_0', 'ah_1'
+            target_phones = forcedAlignment(lmfcc, phoneHMMs, phoneTrans)
+            # phoneme id sequence would then be: 0, 1
+            target_phones_id = [stateList[phone] for phone in target_phones]
+
+            data.append({'filename': filename, 'lmfcc': lmfcc, 
+                           'mspec': mspec, 'targets': target_phones_id})
+   return data
