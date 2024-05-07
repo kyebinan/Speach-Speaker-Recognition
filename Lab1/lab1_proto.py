@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from lab1_tools import *
+from Lab1.lab1_tools import *
 from scipy.signal import lfilter
 from scipy.signal import hamming
 from scipy.fftpack import fft
